@@ -1,31 +1,36 @@
 ---
 name: antigravity-xteam
 description: >-
-  Orchestrates multi-model AI engineering workflows across Gemini, Claude, and
-  GPT/Codex models using quota-aware role routing, medium/low thinking modes,
-  strict file ownership, and token-conservation guardrails. Use when a task
-  benefits from multi-agent delegation, role-based execution, or disciplined
-  quota management.
+  Default quota-aware multi-model engineering orchestrator for Antigravity.
+  Automatically applies to coding, debugging, refactoring, architecture, and
+  multi-step tasks without requiring explicit invocation. Supports "xteam lean"
+  (zero scarce-pool usage) and "xteam audit" (mandatory batched diff review).
 ---
 
 # Antigravity XTeam — Quota-Aware Multi-Model Orchestrator
 
 Operate as an objective, engineering-first coordinator. Do not use flattery or filler praise; state tradeoffs, risks, and blockers directly.
 
-## Step 1: Resolve Live Models & Quotas
+## Step 1: Resolve Live Models & Classify Quota Buckets
 
-Before spawning `swarm` workers, call `swarm(action="models", all=true)` to inspect live model IDs and remaining quotas. Match by family, tier, and `medium` or `low` suffix.
+Before spawning `swarm` workers, call `swarm(action="models", all=true)`. Classify available models dynamically by their `quota_resets` window and remaining percentage (so new models or different plans work automatically):
+- **Short-Window / Heavy Pool** (e.g., ~5h reset: `Neon`, `Orchestrator (Neon)`, `Hydrogen`, `Flash`): Primary `Scout`, `Builder`, `Architect`, and standard `Reviewer`.
+- **Separate Weekly Pool** (e.g., 7d independent reset: `Argon`): Secondary `Architect` and escalation `Reviewer`.
+- **Combined Scarce Pool** (e.g., `Claude`, `GPT-OSS`): Reserved strictly for high-risk diff reviews or last-resort blockers.
 
-## Step 2: Mode, Static-First & Quota Policy
+## Step 2: User Switches, Mode & Static-First Policy
 
-- **Default Mode:** Always use `medium` or `low`. Never use `high` or `xhigh` unless explicitly requested.
-- **0-Token Static Check First:** `Builder` must run build, typecheck, lint, and unit tests before any LLM `Reviewer` is called.
+- **User Mode Switches:**
+  - `xteam lean`: Zero `Claude`/`GPT` usage; run strictly on short-window models + static checks.
+  - `xteam audit`: After static checks pass, run 1 batched `Claude`/`GPT` diff review for security/logic.
+- **Default Thinking Mode:** Always use `medium` or `low`. Never use `high` or `xhigh` unless explicitly requested.
+- **0-Token Static Check First:** `Builder` must run `build`, `typecheck`, `lint`, and unit tests before any LLM `Reviewer` is called.
 - **Triage:**
-  - *Trivial:* Single agent (`gemini-3.8-flash-low`).
-  - *Standard:* `Scout` -> `Builder` (`Neon`/`Hydrogen`) -> static checks + cross-check review (`Hydrogen`/`Neon`, do **not** spawn `Claude`/`GPT`).
+  - *Trivial:* Single agent (`Flash` `low`/`medium`).
+  - *Standard:* `Scout` -> `Builder` (`Neon`/`Hydrogen`) -> static checks + cross-check review (`Hydrogen`/`Neon`; do **not** spawn `Claude`/`GPT`).
   - *Complex / High-Risk:* `Scout` -> `Architect` (`Orchestrator (Neon)` / `Neon` / `Argon`) -> `Builder(s)` -> post-merge build & static checks -> **at most 1 batched `Claude`/`GPT` review** -> `Tester` -> cleanup.
 - **Quota Thresholds (see [model-roles.md](./references/model-roles.md) for failover matrix):**
-  - `< 30%` remaining: Soft-shift routine/review work from scarce pools to `Neon` / `Hydrogen` / `Argon`.
+  - `< 30%` remaining: Soft-shift routine/review work from scarce pools to short-window or separate-pool models.
   - `<= 5%` remaining: Hard failover to the designated backup role/model.
   - **Hot-Swap Before Compact:** Use `swarm(action="model")` only for short/medium workers (`<= 15–20` messages); if context is bloated, capture a 5-line summary, `kill` the worker, and start the fallback fresh.
   - **Total Exhaustion (All `<= 5%`):** Stop spawning `swarm` workers, switch to Single-Agent Ultra-Lean mode (`rg -n` + minimal line-window reads), and warn the user.

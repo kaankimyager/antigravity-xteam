@@ -1,8 +1,11 @@
-# Model Roles, Dynamic Failover Matrix & Worker Briefs
+# Model Roles, Plan-Agnostic Bucketing & Failover Matrix
 
-## 1. Dynamic Model Resolution (`swarm`)
+## 1. Plan-Agnostic Discovery (`swarm`)
 
-Always call `swarm(action="models", all=true)` before `swarm(action="add")` and match live IDs from `models` and `quotas`:
+Always call `swarm(action="models", all=true)` before `swarm(action="add")`. Classify live models dynamically using `quota_resets` and `quotas` so the workflow adapts to any plan or future model release:
+1. **Short-Window Heavy Pool** (models resetting in hours, e.g., `gemini-4-neon`, `gemini-pro-orchestrator-neon`, `gemini-4-hydrogen`, `gemini-3.8-flash`): Use for `Scout`, `Builder`, `Architect`, and `Standard Reviewer`.
+2. **Independent Weekly Pool** (models with their own multi-day reset, e.g., `gemini-4-argon`): Use for `Architect` escalations and secondary reviews without touching combined pools.
+3. **Combined Scarce Pool** (e.g., `claude-sonnet`, `claude-opus`, `gpt-oss`): Reserve strictly for `xteam audit` or high-risk complex diffs (max 1 batched call/task).
 
 | Role | Primary Match Pattern | Mode | Secondary / High-Risk Match |
 | :--- | :--- | :--- | :--- |
@@ -13,7 +16,6 @@ Always call `swarm(action="models", all=true)` before `swarm(action="add")` and 
 | **Reviewer (High-Risk)** | `*sonnet*low` or `*sonnet*medium` | `low` / `medium` | `*gpt-oss*medium` (max 1 batched call/task) |
 
 - Reject `*high` and `*xhigh` variants unless explicitly requested by the user.
-- **5-Hour Heavy Pool:** `Gemini 4 Neon`, `Orchestrator (Neon)`, `Gemini 4 Hydrogen`, and `Gemini 3.8 Flash` reset on the 5-hour window—use them for heavy coding, architecture, and cross-checking (`Neon` builds -> `Hydrogen` reviews, or vice versa).
 - **Swarm Boot Cost:** Spawning a `Claude` or `GPT` worker loads full tool schemas and board context. Never spawn them for trivial/single-file checks or multi-turn back-and-forth; batch all diffs into 1 prompt.
 
 ## 2. Dynamic Cross-Family Failover Matrix
