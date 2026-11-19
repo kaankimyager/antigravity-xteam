@@ -12,9 +12,9 @@ Running every step of a coding task on frontier models drains weekly quotas fast
 
 `antigravity-xteam` splits the work the way a practical engineering team would:
 
-- **High-throughput models (`Gemini 3.8 Flash`, `Gemini 4 Hydrogen`)** handle codebase search, file reads, primary implementation, and refactoring.
+- **5-hour heavy-duty models (`Gemini 4 Neon`, `Orchestrator (Neon)`, `Gemini 4 Hydrogen`, `Gemini 3.8 Flash`)** handle codebase search, architecture, primary implementation, refactoring, and cross-check reviews.
 - **Local tooling (`build`, `typecheck`, `lint`, unit tests)** runs *before* any LLM review so syntax and type errors cost zero tokens.
-- **Separate-pool or scarce models (`Gemini 4 Argon`, `Claude Sonnet`, `Claude Opus`, `GPT-OSS 120B`)** are reserved for architecture checkpoints and batched, diff-only reviews on complex or high-risk changes.
+- **Separate-pool or scarce models (`Gemini 4 Argon`, `Claude Sonnet`, `Claude Opus`, `GPT-OSS 120B`)** are reserved for hard architectural escalations and batched, diff-only reviews on complex or high-risk changes.
 - **Default thinking mode is locked to `medium` or `low`** (`high` / `xhigh` are avoided unless you explicitly ask for them).
 
 ---
@@ -23,10 +23,10 @@ Running every step of a coding task on frontier models drains weekly quotas fast
 
 | Role | Default Model | Fallback / Escalation | Responsibility |
 | :--- | :--- | :--- | :--- |
-| **Scout** | `gemini-3.8-flash` (`low` / `medium`) | `gemini-4-hydrogen-low` | `rg -n` searches, narrow line-range reads, summaries, routine edits. |
-| **Builder** | `gemini-4-hydrogen` (`medium`) | `gemini-3.8-flash-medium` / `argon` | Primary implementation, refactoring, post-merge builds and test runs. |
-| **Architect** | `gemini-4-argon` (`medium`) | `hydrogen` / `claude-opus-5-5-medium` | System design and hard blockers (fed concise summaries, never raw repo dumps). |
-| **Reviewer** | `hydrogen` / `argon` (Standard) | `claude-sonnet` / `gpt-oss-120b` (High-Risk) | Diff-only bug and security review after static checks pass. |
+| **Scout** | `gemini-3.8-flash` (`low` / `medium`) | `hydrogen-low` / `neon-low` | `rg -n` searches, narrow line-range reads, summaries, routine edits. |
+| **Builder** | `gemini-4-neon` / `gemini-4-hydrogen` (`medium`) | `flash-medium` / `argon` | Primary implementation, refactoring, post-merge builds and test runs. |
+| **Architect** | `orchestrator-neon` / `gemini-4-neon` (`medium`) | `argon` / `claude-opus-5-5-medium` | System design and hard blockers (fed concise summaries, never raw repo dumps). |
+| **Reviewer** | `hydrogen` <-> `neon` / `argon` (Standard) | `claude-sonnet` / `gpt-oss-120b` (High-Risk) | Diff-only bug and security review after static checks pass. |
 | **Tester** | `browser` subagent (`flash`) | — | Live UI verification against a verified `http://localhost:<port>`. |
 | **Designer** | `image-generator` subagent | — | UI mockups, icons, banners, and diagrams. |
 
@@ -36,7 +36,7 @@ Running every step of a coding task on frontier models drains weekly quotas fast
 
 - **Live Model Resolution:** Always inspects `swarm(action="models", all=true)` before spawning workers instead of assuming hardcoded model IDs never change.
 - **Two-Stage Quota Failover:**
-  - `< 30%` remaining on a scarce pool shifts routine work to `Argon` or `Hydrogen`.
+  - `< 30%` remaining on a scarce pool shifts routine work to `Neon`, `Hydrogen`, or `Argon`.
   - `<= 5%` triggers hard role failover across model families (and drops to **Single-Agent Ultra-Lean Mode** if all pools are exhausted).
 - **Hot-Swap Before Compact:** Short worker sessions (`<= 15–20` messages) can switch models mid-flight via `swarm(action="model")`; bloated sessions are summarized in 5 lines, killed, and restarted clean so history doesn't burn the fallback's quota.
 - **Strict File Ownership & Build Lock:** Parallel `Builder` workers (capped at 2–3) only touch disjoint paths after shared contracts are written, and never run `install` or `build` commands concurrently—one designated `Builder` or the coordinator builds after merging.
@@ -73,7 +73,7 @@ git clone https://github.com/kaankimyager/antigravity-xteam.git .agents/skills/a
 
 Once installed, Antigravity discovers `antigravity-xteam` automatically via `SKILL.md` frontmatter.
 
-- **Recommended main chat model:** `Gemini 4 Hydrogen (Medium)` for general engineering work, or `Gemini 3.8 Flash (Medium)` for quick exploration and light edits.
+- **Recommended main chat model:** `Gemini 4 Neon (Medium)` or `Gemini 4 Hydrogen (Medium)` for general engineering work, or `Gemini 3.8 Flash (Medium)` for quick exploration and light edits.
 - **Avoid leaving `Claude Opus` or `Claude Sonnet` selected as your main chat model**—let the skill invoke scarce models surgically only when a complex diff or blocker warrants it.
 - Reference files inside `./references/` are loaded on demand only when needed to keep context usage low.
 

@@ -22,10 +22,10 @@ Before spawning `swarm` workers, call `swarm(action="models", all=true)` to insp
 - **0-Token Static Check First:** `Builder` must run build, typecheck, lint, and unit tests before any LLM `Reviewer` is called.
 - **Triage:**
   - *Trivial:* Single agent (`gemini-3.8-flash-low`).
-  - *Standard:* `Scout` -> `Builder` -> static checks + `Hydrogen`/`Argon` review (do **not** spawn `Claude`/`GPT`).
-  - *Complex / High-Risk:* `Scout` -> `Architect` (`Argon` separate weekly pool) -> `Builder(s)` -> post-merge build & static checks -> **at most 1 batched `Claude`/`GPT` review** -> `Tester` -> cleanup.
+  - *Standard:* `Scout` -> `Builder` (`Neon`/`Hydrogen`) -> static checks + cross-check review (`Hydrogen`/`Neon`, do **not** spawn `Claude`/`GPT`).
+  - *Complex / High-Risk:* `Scout` -> `Architect` (`Orchestrator (Neon)` / `Neon` / `Argon`) -> `Builder(s)` -> post-merge build & static checks -> **at most 1 batched `Claude`/`GPT` review** -> `Tester` -> cleanup.
 - **Quota Thresholds (see [model-roles.md](./references/model-roles.md) for failover matrix):**
-  - `< 30%` remaining: Soft-shift routine/review work from scarce pools to `Argon` / `Hydrogen`.
+  - `< 30%` remaining: Soft-shift routine/review work from scarce pools to `Neon` / `Hydrogen` / `Argon`.
   - `<= 5%` remaining: Hard failover to the designated backup role/model.
   - **Hot-Swap Before Compact:** Use `swarm(action="model")` only for short/medium workers (`<= 15–20` messages); if context is bloated, capture a 5-line summary, `kill` the worker, and start the fallback fresh.
   - **Total Exhaustion (All `<= 5%`):** Stop spawning `swarm` workers, switch to Single-Agent Ultra-Lean mode (`rg -n` + minimal line-window reads), and warn the user.
@@ -34,10 +34,10 @@ Before spawning `swarm` workers, call `swarm(action="models", all=true)` to insp
 
 | Role | Primary Model | Fallback | Mode | Responsibility & Slash Command Hint |
 | :--- | :--- | :--- | :--- | :--- |
-| **Scout** | `gemini-3.8-flash` | `hydrogen-low` | `low` / `medium` | Search, logs, summaries, mechanical edits. Suggest `/compact`, `/schedule`. |
-| **Builder** | `gemini-4-hydrogen` | `flash-medium` / `argon` | `medium` | Heavy coding, refactoring, post-merge build & tests. Suggest `/goal`, `/teamwork`. |
-| **Architect** | `gemini-4-argon` | `hydrogen` / `opus` | `medium` | Critical design & blockers (summary-fed; separate pool). Suggest `/plan`, `/grill-me`, `/learn`. |
-| **Reviewer** | `hydrogen` / `argon` (Std) | `claude-sonnet` / `gpt-oss` (High-Risk) | `low` / `medium` | Diff-only bug/security review after static checks pass. Suggest `/boost`. |
+| **Scout** | `gemini-3.8-flash` | `hydrogen-low` / `neon-low` | `low` / `medium` | Search, logs, summaries, mechanical edits. Suggest `/compact`, `/schedule`. |
+| **Builder** | `gemini-4-neon` / `gemini-4-hydrogen` | `flash-medium` / `argon` | `medium` | Heavy coding, refactoring, post-merge build & tests. Suggest `/goal`, `/teamwork`. |
+| **Architect** | `orchestrator-neon` / `gemini-4-neon` | `argon` / `opus` | `medium` | Critical design & blockers (summary-fed; 5h reset via Neon). Suggest `/plan`, `/grill-me`, `/learn`. |
+| **Reviewer** | `hydrogen` <-> `neon` / `argon` (Std) | `claude-sonnet` / `gpt-oss` (High-Risk) | `low` / `medium` | Diff-only bug/security review after static checks pass. Suggest `/boost`. |
 | **Tester** | `browser` subagent | — | `flash` | Live UI checks on verified `http://localhost:<port>`. Suggest `/browser`. |
 | **Designer** | `image-generator` subagent | — | — | UI mockups, icons, banners, and diagrams. |
 
